@@ -16,12 +16,11 @@
 
 package org.squbs.unicomplex
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Route
-import akka.pattern._
-import akka.stream.ActorMaterializer
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.pattern._
+import org.apache.pekko.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -86,8 +85,6 @@ object MultiListenerSpecActorSystem {
 class MultiListenerSpec extends TestKit(MultiListenerSpecActorSystem.boot.actorSystem)
     with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
 
-  implicit val am = ActorMaterializer()
-
   val portBindings = Await.result((Unicomplex(system).uniActor ? PortBindings).mapTo[Map[String, Int]], awaitMax)
   val port1 = portBindings("default-listener")
   val port2 = portBindings("second-listener")
@@ -108,7 +105,7 @@ class MultiListenerSpec extends TestKit(MultiListenerSpecActorSystem.boot.actorS
     MultiListenerService.count should be(1)
   }
 
-  it should "register the JMXBean for Akka Http status" in {
+  it should "register the JMXBean for Pekko Http status" in {
     import org.squbs.unicomplex.JMX._
     val statsBase = s"${MetricsExtension(system).Domain}:name=${MetricsExtension(system).Domain}."
     get(statsBase + "default-listener-connections-creation-count", "Count").asInstanceOf[Long] should be >= 0L

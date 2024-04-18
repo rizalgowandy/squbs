@@ -1,13 +1,11 @@
 ![image](docs/img/squbs-logo-transparent.png)
 
 [![Join the chat at https://gitter.im/paypal/squbs](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/paypal/squbs?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Build Status](https://travis-ci.org/paypal/squbs.svg?branch=master)](https://travis-ci.org/paypal/squbs)
-[![Codacy Badge](https://api.codacy.com/project/badge/57368c396cb649c590e4ba678675e55c)](https://www.codacy.com/app/akara-sucharitakul/squbs)
-[![Codacy Coverage](https://api.codacy.com/project/badge/coverage/57368c396cb649c590e4ba678675e55c)](https://www.codacy.com/app/akara-sucharitakul/squbs)
+[![Build Status](https://github.com/paypal/squbs/actions/workflows/publish.yml/badge.svg)](https://github.com/paypal/squbs/actions/workflows/publish.yml)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.squbs/squbs-unicomplex_2.12/badge.svg?style=flat)](http://search.maven.org/#search|ga|1|g:org.squbs)
 [![License](https://img.shields.io/badge/License-Apache%202.0-red.svg)](https://opensource.org/licenses/Apache-2.0)
 
-squbs (pronounced "skewbs") is a suite of components enabling standardization and operationalization of Akka and Akka HTTP applications/services in a large scale, managed, cloud environment. It standardizes how Akka applications are deployed in different environments and how they are hooked up to the operational environments of large, internet-scale organizations.
+squbs (pronounced "skewbs") is a suite of components enabling standardization and operationalization of Pekko and Pekko HTTP applications/services in a large scale, managed, cloud environment. It standardizes how Pekko applications are deployed in different environments and how they are hooked up to the operational environments of large, internet-scale organizations.
 
 ## Documentation 
 

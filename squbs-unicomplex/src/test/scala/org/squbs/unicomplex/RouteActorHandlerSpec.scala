@@ -16,11 +16,10 @@
 
 package org.squbs.unicomplex
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.server._
-import akka.pattern._
-import akka.stream.ActorMaterializer
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.server._
+import org.apache.pekko.pattern._
+import org.apache.pekko.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -52,8 +51,6 @@ object RouteActorHandlerSpec {
 
 class RouteActorHandlerSpec extends TestKit(
   RouteActorHandlerSpec.boot.actorSystem) with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
-
-  implicit val am = ActorMaterializer()
 
   val portBindings = Await.result((Unicomplex(system).uniActor ? PortBindings).mapTo[Map[String, Int]], awaitMax)
   val port = portBindings("default-listener")

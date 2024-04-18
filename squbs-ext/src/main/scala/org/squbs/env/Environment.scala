@@ -20,7 +20,7 @@ import java.lang.management.ManagementFactory
 import java.util
 import javax.management.{ObjectName, MXBean}
 
-import akka.actor._
+import org.apache.pekko.actor._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.beans.BeanProperty
@@ -102,7 +102,7 @@ class EnvironmentResolverRegistryExtension(system: ExtendedActorSystem) extends 
 
 object EnvironmentResolverRegistry extends ExtensionId[EnvironmentResolverRegistryExtension] with ExtensionIdProvider {
 
-  override def lookup() = EnvironmentResolverRegistry
+  override def lookup = EnvironmentResolverRegistry
 
   override def createExtension(system: ExtendedActorSystem): EnvironmentResolverRegistryExtension = {
     val mBeanServer = ManagementFactory.getPlatformMBeanServer

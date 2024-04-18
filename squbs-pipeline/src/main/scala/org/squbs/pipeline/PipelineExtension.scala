@@ -16,12 +16,12 @@
 
 package org.squbs.pipeline
 
-import akka.NotUsed
-import akka.actor._
-import akka.stream.{javadsl, scaladsl}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor._
+import org.apache.pekko.stream.{javadsl, scaladsl}
 import com.typesafe.config.ConfigObject
-import collection.JavaConverters._
 
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 sealed trait PipelineType
@@ -32,7 +32,7 @@ case class Context(name: String, pipelineType: PipelineType)
 
 package japi {
 
-  import akka.stream.javadsl.BidiFlow
+  import org.apache.pekko.stream.javadsl.BidiFlow
 
   /**
     * Java API
@@ -126,7 +126,7 @@ object PipelineExtension extends ExtensionId[PipelineExtensionImpl] with Extensi
       (clientDefaultPreFlow, clientDefaultPostFlow))(system)
   }
 
-  override def lookup(): ExtensionId[_ <: Extension] = PipelineExtension
+  override def lookup: ExtensionId[_ <: Extension] = PipelineExtension
 
   /**
     * Java API: retrieve the Pipeline extension for the given system.

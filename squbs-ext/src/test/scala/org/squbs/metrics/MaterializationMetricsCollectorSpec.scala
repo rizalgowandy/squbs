@@ -16,25 +16,23 @@
 
 package org.squbs.metrics
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Sink}
-import akka.stream.testkit.scaladsl.TestSource
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.testkit.scaladsl.TestSource
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.OptionValues._
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.lang.management.ManagementFactory
 import javax.management.ObjectName
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 
 class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("MaterializationMetricsCollectorSpec"))
-  with AsyncFlatSpecLike with Matchers {
+  with AsyncFlatSpecLike with Matchers with ScalaFutures {
 
-  val awaitMax = 60.seconds
-  implicit val materializer = ActorMaterializer()
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(scaled(1.minute))
 
   it should "update metrics when upstream finishes" in {
 
@@ -48,7 +46,7 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     jmxValue("upstream-finishes-creation-count", "Count").value shouldBe 2
 
     probe1.sendComplete()
-    Await.ready(future1, awaitMax)
+    future1.futureValue
 
     // It should decrement the counter when stream fails
     jmxValue("upstream-finishes-active-count", "Count").value shouldBe 1
@@ -64,11 +62,13 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     probe2.sendComplete()
     probe3.sendComplete()
 
-    Future.sequence(future2 :: future3:: Nil) map { _ =>
-      jmxValue("upstream-finishes-active-count", "Count").value shouldBe 0
-      jmxValue("upstream-finishes-creation-count", "Count").value shouldBe 3
-      jmxValue("upstream-finishes-termination-count", "Count").value shouldBe 3
-    }
+    // Ensures the futures complete.
+    future2.futureValue
+    future3.futureValue
+
+    jmxValue("upstream-finishes-active-count", "Count").value shouldBe 0
+    jmxValue("upstream-finishes-creation-count", "Count").value shouldBe 3
+    jmxValue("upstream-finishes-termination-count", "Count").value shouldBe 3
   }
 
   it should "update metrics when upstream fails" in {
@@ -83,7 +83,7 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     jmxValue("upstream-fails-creation-count", "Count").value shouldBe 2
 
     probe1.sendError(new Exception("boom"))
-    Await.ready(future1, awaitMax)
+    future1.failed.futureValue
 
     // It should decrement the counter when stream fails
     jmxValue("upstream-fails-active-count", "Count").value shouldBe 1
@@ -99,11 +99,13 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     probe2.sendError(new Exception("boom"))
     probe3.sendError(new Exception("boom"))
 
-    recoverToSucceededIf[Exception](Future.sequence(future2 :: future3:: Nil)) map { _ =>
-      jmxValue("upstream-fails-active-count", "Count").value shouldBe 0
-      jmxValue("upstream-fails-creation-count", "Count").value shouldBe 3
-      jmxValue("upstream-fails-termination-count", "Count").value shouldBe 3
-    }
+    // Ensures the futures complete.
+    future2.failed.futureValue
+    future3.failed.futureValue
+
+    jmxValue("upstream-fails-active-count", "Count").value shouldBe 0
+    jmxValue("upstream-fails-creation-count", "Count").value shouldBe 3
+    jmxValue("upstream-fails-termination-count", "Count").value shouldBe 3
   }
 
   it should "update metrics when downstream terminates" in {
@@ -124,7 +126,7 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     probe1.sendNext(1)
     probe1.sendNext(2)
     probe1.sendNext(3)
-    Await.ready(future1, awaitMax)
+    future1.failed.futureValue
 
     // It should decrement the counter when downstream fails
     jmxValue("downstream-finishes-active-count", "Count").value shouldBe 1
@@ -144,15 +146,17 @@ class MaterializationMetricsCollectorSpec extends TestKit(ActorSystem("Materiali
     probe3.sendNext(2)
     probe3.sendNext(3)
 
-    recoverToSucceededIf[Exception](Future.sequence(future2 :: future3:: Nil)) map { _ =>
-      jmxValue("downstream-finishes-active-count", "Count").value shouldBe 0
-      jmxValue("downstream-finishes-creation-count", "Count").value shouldBe 3
-      jmxValue("downstream-finishes-termination-count", "Count").value shouldBe 3
-    }
+    // Ensures the futures complete.
+    future2.failed.futureValue
+    future3.failed.futureValue
+
+    jmxValue("downstream-finishes-active-count", "Count").value shouldBe 0
+    jmxValue("downstream-finishes-creation-count", "Count").value shouldBe 3
+    jmxValue("downstream-finishes-termination-count", "Count").value shouldBe 3
   }
 
 
-  def jmxValue(beanName: String, key: String) = {
+  def jmxValue(beanName: String, key: String): Option[AnyRef] = {
     val oName =
       ObjectName.getInstance(s"${MetricsExtension(system).Domain}:name=${MetricsExtension(system).Domain}.$beanName")
     Option(ManagementFactory.getPlatformMBeanServer.getAttribute(oName, key))

@@ -16,8 +16,8 @@
 package org.squbs.httpclient
 import java.util.Optional
 
-import akka.http.javadsl
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.javadsl
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.typesafe.config.Config
 import javax.net.ssl.SSLContext
 
@@ -28,7 +28,11 @@ import scala.compat.java8.OptionConverters._
   * @param uri The HTTP request URI.
   * @param sslContext The SSL context, if any.
   */
-case class HttpEndpoint(uri: Uri, sslContext: Option[SSLContext] = None, config: Option[Config] = None)
+case class HttpEndpoint(uri: Uri,
+                        sslContext: Option[SSLContext] = None,
+                        config: Option[Config] = None,
+                        sslEngineProvider: Option[SSLEngineProvider] = None
+                       )
 
 /**
   * Creators for HttpEndpoint.
@@ -36,8 +40,11 @@ case class HttpEndpoint(uri: Uri, sslContext: Option[SSLContext] = None, config:
 object HttpEndpoint {
   def apply(s: String): HttpEndpoint = HttpEndpoint(Uri(s))
 
-  def apply(s: String, sslContext: Option[SSLContext], config: Option[Config]): HttpEndpoint =
-    HttpEndpoint(Uri(s), sslContext, config)
+  def apply(s: String, sslContext: Option[SSLContext],
+            config: Option[Config],
+            sslEngineProvider: Option[SSLEngineProvider]
+           ): HttpEndpoint =
+    HttpEndpoint(Uri(s), sslContext, config, sslEngineProvider)
 
   /**
     * Java API
@@ -47,12 +54,18 @@ object HttpEndpoint {
   /**
     * Java API
     */
-  def create(s: String, sslContext: Optional[SSLContext], config: Optional[Config]): HttpEndpoint =
-    HttpEndpoint(Uri(s), sslContext.asScala, config.asScala)
+  def create(s: String, sslContext: Optional[SSLContext],
+             config: Optional[Config],
+             sslEngineProvider: Optional[SSLEngineProvider]
+            ): HttpEndpoint =
+    HttpEndpoint(Uri(s), sslContext.asScala, config.asScala, sslEngineProvider.asScala)
 
   /**
    * Java API
    */
-  def create(uri: javadsl.model.Uri, sslContext: Optional[SSLContext], config: Optional[Config]): HttpEndpoint =
-    HttpEndpoint(uri.asScala, sslContext.asScala, config.asScala)
+  def create(uri: javadsl.model.Uri,
+             sslContext: Optional[SSLContext],
+             config: Optional[Config],
+             sslEngineProvider: Optional[SSLEngineProvider]): HttpEndpoint =
+    HttpEndpoint(uri.asScala, sslContext.asScala, config.asScala, sslEngineProvider.asScala)
 }

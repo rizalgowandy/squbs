@@ -51,7 +51,7 @@ class WellBehavedStream extends PerpetualStream[Future[Done]] {
 
   val ignoreSink = Sink.ignore
   
-  override def streamGraph = RunnableGraph.fromGraph(GraphDSL.create(ignoreSink) {
+  override def streamGraph = RunnableGraph.fromGraph(GraphDSL.createGraph(ignoreSink) {
     implicit builder =>
       sink =>
         import GraphDSL.Implicits._
@@ -75,7 +75,7 @@ class WellBehavedStream2 extends PerpetualStream[(KillSwitch, Future[Done])] {
   val ignoreSink = Sink.ignore
   
   override def streamGraph = RunnableGraph.fromGraph(
-    GraphDSL.create(KillSwitch.single[Int], ignoreSink)((_,_)) { implicit builder =>
+    GraphDSL.createGraph(KillSwitch.single[Int], ignoreSink)((_,_)) { implicit builder =>
       (kill, sink) =>
         import GraphDSL.Implicits._
         source ~> kill ~> sink
@@ -278,7 +278,7 @@ override def decider: Supervision.Decider = { t =>
 
 ```java
 @Override
-public akka.japi.function.Function<Throwable, Supervision.Directive> decider() {
+public org.apache.pekko.japi.function.Function<Throwable, Supervision.Directive> decider() {
     return t -> {
         log().error("Uncaught error {} from stream", t);
         t.printStackTrace();
@@ -287,11 +287,11 @@ public akka.japi.function.Function<Throwable, Supervision.Directive> decider() {
 }
 ```
 
-`Restart` will restart the stage that has an error without shutting down the stream. Please see [Supervision Strategies](http://doc.akka.io/docs/akka/current/scala/stream/stream-error.html#Supervision_Strategies) for possible strategies.
+`Restart` will restart the stage that has an error without shutting down the stream. Please see [Supervision Strategies](http://doc.pekko.io/docs/pekko/current/scala/stream/stream-error.html#Supervision_Strategies) for possible strategies.
 
 #### Connecting a Perpetual Stream with an HTTP Flow
 
-Akka HTTP allows defining a `Flow[HttpRequest, HttpResponse, NotUsed]`, which gets materialized for each http connection.  There are scenarios where an app needs to connect the http flow to a long running stream that needs to be materialized only once (e.g., publishing to Kafka).  Akka HTTP enables end-to-end streaming in such scenarios with [`MergeHub`](http://doc.akka.io/docs/akka/current/scala/stream/stream-dynamic.html#dynamic-fan-in-and-fan-out-with-mergehub-broadcasthub-and-partitionhub).  squbs provides utilities to connect an http flow with a `PerpetualStream` that uses `MergeHub`.  
+pekko HTTP allows defining a `Flow[HttpRequest, HttpResponse, NotUsed]`, which gets materialized for each http connection.  There are scenarios where an app needs to connect the http flow to a long running stream that needs to be materialized only once (e.g., publishing to Kafka).  pekko HTTP enables end-to-end streaming in such scenarios with [`MergeHub`](http://doc.pekko.io/docs/pekko/current/scala/stream/stream-dynamic.html#dynamic-fan-in-and-fan-out-with-mergehub-broadcasthub-and-partitionhub).  squbs provides utilities to connect an http flow with a `PerpetualStream` that uses `MergeHub`.  
 
 
 Below are sample `PerpetualStream` implementations - two Scala and two Java equivalents, all using `MergeHub`.
@@ -383,7 +383,7 @@ class PerpetualStreamWithMergeHub extends PerpetualStream[Sink[MyMessage, NotUse
     * @return The graph.
     */
   override def streamGraph: RunnableGraph[Sink[MyMessage, NotUsed]] = RunnableGraph.fromGraph(
-    GraphDSL.create(source) { implicit builder=>
+    GraphDSL.createGraph(source) { implicit builder=>
         input =>  
           import GraphDSL.Implicits._
             
@@ -501,7 +501,7 @@ The HTTP `FlowDefinition` can be connected to the `PerpetualStream` as follows b
 ```java
 class HttpFlowWithMergeHub extends FlowToPerpetualStream {
 
-    private final Materializer mat = ActorMaterializer.create(context().system());
+    private final Materializer mat = Materializer.createMaterializer(context().system());
     private final MarshalUnmarshal mu = new MarshalUnmarshal(context().system().dispatcher(), mat);
 
     @Override

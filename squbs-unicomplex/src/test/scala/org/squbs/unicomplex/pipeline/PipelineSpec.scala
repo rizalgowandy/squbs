@@ -16,15 +16,15 @@
 
 package org.squbs.unicomplex.pipeline
 
-import akka.actor.{Actor, ActorSystem}
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.server.{RejectionHandler, Route}
-import akka.pattern._
-import akka.stream.scaladsl.{BidiFlow, Flow, GraphDSL}
-import akka.stream.{ActorMaterializer, BidiShape}
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.actor.{Actor, ActorSystem}
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.server.{RejectionHandler, Route}
+import org.apache.pekko.pattern._
+import org.apache.pekko.stream.BidiShape
+import org.apache.pekko.stream.scaladsl.{BidiFlow, Flow, GraphDSL}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -79,7 +79,6 @@ object PipelineSpec {
   class PipelineSpec extends TestKit(
     PipelineSpec.boot.actorSystem) with AnyFlatSpecLike with Matchers with ImplicitSender with BeforeAndAfterAll {
 
-    implicit val am = ActorMaterializer()
 
     val portBindings = Await.result((Unicomplex(system).uniActor ? PortBindings).mapTo[Map[String, Int]], awaitMax)
     val port = portBindings("default-listener")
@@ -90,7 +89,8 @@ object PipelineSpec {
     }
 
     it should "build the flow with defaults" in {
-      val (actualEntity, actualHeaders) = Await.result(entityAsStringWithHeaders(s"http://127.0.0.1:$port/1/dummy"), awaitMax)
+      val (actualEntity, actualHeaders) =
+        Await.result(entityAsStringWithHeaders(s"http://127.0.0.1:$port/1/dummy"), awaitMax)
 
       val expectedHeaders = Seq(
         RawHeader("keyD", "valD"),

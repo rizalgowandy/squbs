@@ -17,9 +17,9 @@ package org.squbs.stream
 
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
-import akka.stream.ThrottleMode.Shaping
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
+import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
+import org.apache.pekko.stream.ThrottleMode.Shaping
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -46,7 +46,7 @@ class KillSwitchMatStream extends PerpetualStream[(KillSwitch, Future[Long])] {
 
   val counter = Flow[Int].map { _ => 1L }.reduce { _ + _ }.toMat(Sink.head)(Keep.right)
 
-  override def streamGraph = RunnableGraph.fromGraph(GraphDSL.create(KillSwitches.single[Int], counter)((_, _)) {
+  override def streamGraph = RunnableGraph.fromGraph(GraphDSL.createGraph(KillSwitches.single[Int], counter)((_, _)) {
     implicit builder =>
       (kill, sink) =>
         import GraphDSL.Implicits._

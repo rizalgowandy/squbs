@@ -15,13 +15,12 @@
  */
 package org.squbs.httpclient
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
-import akka.http.scaladsl.{ClientTransport, ConnectionContext, Http}
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
+import org.apache.pekko.http.scaladsl.{ClientTransport, ConnectionContext, Http}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.typesafe.config.ConfigFactory
 import io.netty.handler.codec.http
 import io.netty.handler.codec.http.HttpObject
@@ -31,6 +30,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.squbs.httpclient.ClientFlowHttpsSpec.InsecureSSLEngineProvider
 import org.squbs.resolver.ResolverRegistry
 import org.squbs.testkit.Timeouts._
 
@@ -43,8 +43,6 @@ import scala.util.{Success, Try}
 object ClientFlowHttpsProxySpec {
 
   implicit val system = ActorSystem("ClientFlowHttpsProxySpecServers")
-  implicit val mat = ActorMaterializer()
-  import system.dispatcher
 
   val proxyRequests = new AtomicInteger(0)
 
@@ -52,7 +50,7 @@ object ClientFlowHttpsProxySpec {
   var proxyPort: Int = _
 
   private def startServer() = {
-    import akka.http.scaladsl.server.Directives._
+    import org.apache.pekko.http.scaladsl.server.Directives._
 
     val route =
       path("hello") {
@@ -61,8 +59,8 @@ object ClientFlowHttpsProxySpec {
         }
       }
 
-    Http().bindAndHandle(route, "localhost", 0,
-      ConnectionContext.https(sslContext("example.com.jks", "changeit")))
+    Http().newServerAt("localhost", 0)
+      .enableHttps(ConnectionContext.httpsServer(sslContext("example.com.jks", "changeit"))).bind(route)
   }
 
   private def startProxyServer(): Unit = {
@@ -89,7 +87,7 @@ object ClientFlowHttpsProxySpec {
   }
 }
 
-class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAndAfterAll
+class ClientFlowHttpsProxySpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
   with BeforeAndAfterEach with ScalaFutures {
 
   val serverBinding = Await.result(ClientFlowHttpsProxySpec.startServers(), awaitMax)
@@ -103,14 +101,13 @@ class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAnd
     val config = ConfigFactory.parseString(configText)
 
     implicit val system = ActorSystem(systemName, config)
-    implicit val mat = ActorMaterializer()
 
 
     ResolverRegistry(system).register[HttpEndpoint]("LocalhostHttpsEndpointResolver") { (name, _) =>
       name match {
         case "helloHttps" =>
           Some(HttpEndpoint(s"https://localhost:$serverPort",
-            Some(sslContext("exampletrust.jks", "changeit")), None))
+            Some(sslContext("exampletrust.jks", "changeit")), None, Some(InsecureSSLEngineProvider)))
         case _ => None
       }
     }
@@ -134,8 +131,7 @@ class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAnd
       s"""
          |helloHttps {
          |  type = squbs.httpclient
-         |  akka.ssl-config.loose.disableHostnameVerification = true
-         |  akka.http.client.proxy {
+         |  pekko.http.client.proxy {
          |    https {
          |      host = localhost
          |      port = ${ClientFlowHttpsProxySpec.proxyPort}
@@ -145,7 +141,7 @@ class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAnd
          |
          |// This global entry is just here to make sure when a client-level one is specified,
          |// it is honored instead of the global one.
-         |akka.http.client.proxy {
+         |pekko.http.client.proxy {
          |  https {
          |    host = doesnotexisthost
          |    port = 80
@@ -175,10 +171,9 @@ class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAnd
       s"""
          |helloHttps {
          |  type = squbs.httpclient
-         |  akka.ssl-config.loose.disableHostnameVerification = true
          |}
          |
-         |akka.http.client.proxy {
+         |pekko.http.client.proxy {
          |  https {
          |    host = localhost
          |    port = ${ClientFlowHttpsProxySpec.proxyPort}
@@ -208,12 +203,12 @@ class ClientFlowHttpsProxySpec  extends AnyFlatSpec with Matchers with BeforeAnd
       s"""
          |helloHttps {
          |  type = squbs.httpclient
-         |  akka.ssl-config.loose.disableHostnameVerification = true
+         |  pekko.ssl-config.loose.disableHostnameVerification = true
          |}
          |
          |// This global entry is just here to make sure when it is programmatically specified,
          |// that is honored instead of the global one.
-         |akka.http.client.proxy {
+         |pekko.http.client.proxy {
          |  https {
          |    host = doesnotexisthost
          |    port = 80

@@ -15,10 +15,10 @@
  */
 package org.squbs.stream
 
-import akka.Done
-import akka.actor.{Actor, ActorIdentity, ActorLogging, ActorNotFound, ActorRef, ActorRefFactory, Identify, Props, Stash, Status, Terminated}
-import akka.stream._
-import akka.util.Timeout
+import org.apache.pekko.Done
+import org.apache.pekko.actor._
+import org.apache.pekko.stream._
+import org.apache.pekko.util.Timeout
 import org.squbs.lifecycle.{GracefulStop, GracefulStopHelper}
 import org.squbs.unicomplex._
 
@@ -64,15 +64,13 @@ trait PerpetualStreamBase[T] extends Actor with ActorLogging with Stash with Gra
   Unicomplex() ! ObtainLifecycleEvents(streamRunLifecycleState, Stopping)
   Unicomplex() ! SystemState
 
-  implicit val materializer: ActorMaterializer
-
   private[stream] def runGraph(): T
 
   private[stream] def shutdownAndNotify(): Unit
 
   final def starting: Receive = {
     case `streamRunLifecycleState` =>
-      context.become(running orElse flowMatValue orElse receive)
+      context.become(running orElse flowMatValue orElse receive orElse catchAnyLifecycleState)
       matValueOption = Option(runGraph())
       unstashAll()
     case _ => stash()
@@ -88,7 +86,7 @@ trait PerpetualStreamBase[T] extends Actor with ActorLogging with Stash with Gra
   }
 
   final def stopped(children: Iterable[ActorRef]): Receive = {
-    case Done => materializer.shutdown()
+    case Done => // Just accept the fact. Do nothing.
 
     case Terminated(ref) =>
       val remaining = children filterNot ( _ == ref )
@@ -97,6 +95,10 @@ trait PerpetualStreamBase[T] extends Actor with ActorLogging with Stash with Gra
 
   final def flowMatValue: Receive = {
     case MatValueRequest => sender() ! matValue
+  }
+
+  final def catchAnyLifecycleState: Receive = {
+    case _: LifecycleState => // Stashed lifecycle states without meaning or anyone caring should be ignored.
   }
 }
 

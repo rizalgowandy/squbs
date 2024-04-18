@@ -16,8 +16,8 @@
 
 package org.squbs.testkit.stress
 
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.squbs.testkit.Timeouts._
@@ -125,7 +125,7 @@ class StatLogger(startTimeNs: Long, warmUp: FiniteDuration, steady: FiniteDurati
                  loadActor: ActorRef, statsActor: ActorRef) extends Actor {
   import context.dispatcher
   // Starting 5 seconds early to test stats outside warmUp.
-  val scheduler = context.system.scheduler.schedule(
+  val scheduler = context.system.scheduler.scheduleWithFixedDelay(
     warmUp - (5.seconds) + ((startTimeNs - System.nanoTime()).nanoseconds), 5.seconds, self, TestPing)
 
   def receive = {

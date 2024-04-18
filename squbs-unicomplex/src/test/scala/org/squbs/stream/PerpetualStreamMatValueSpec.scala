@@ -15,12 +15,12 @@
  */
 package org.squbs.stream
 
-import akka.NotUsed
-import akka.actor.{Actor, ActorRef, ActorRefFactory, ActorSystem, Props, Status}
-import akka.pattern._
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
-import akka.stream.{ActorMaterializer, ClosedShape, Materializer}
-import akka.util.Timeout
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{Actor, ActorRef, ActorRefFactory, ActorSystem, Props, Status}
+import org.apache.pekko.pattern._
+import org.apache.pekko.stream.ClosedShape
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.funspec.AnyFunSpec
@@ -41,7 +41,6 @@ class PerpetualStreamMatValueSpec extends AnyFunSpec with Matchers with BeforeAn
 
 
   implicit val system = ActorSystem(this.getClass.getSimpleName)
-  implicit val mat = ActorMaterializer()
 
   private val timeout = Timeout(PerpetualStreamMatValueSpecHelper.timeoutDuration)
   implicit override val patienceConfig = PatienceConfig(timeout = Span(3, Seconds))
@@ -69,7 +68,7 @@ class PerpetualStreamMatValueSpec extends AnyFunSpec with Matchers with BeforeAn
 
         List(
           "Product"        -> classTag[GoodProductSinkMaterializingStream],
-          "akka.japi.Pair" -> classTag[GoodJapiPairSinkMaterializingStream],
+          "org.apache.pekko.japi.Pair" -> classTag[GoodJapiPairSinkMaterializingStream],
           "java.util.List" -> classTag[GoodJavaListSinkMaterializingStream]
         ).foreach { case (testName, ct) =>
           implicit val to = timeout
@@ -93,7 +92,7 @@ class PerpetualStreamMatValueSpec extends AnyFunSpec with Matchers with BeforeAn
       describe("Cases where we examine the 'first' element, and it is NOT a Sink[T, NotUsed]") {
         List(
           "Products"       -> classTag[BadProductSinkMaterializingStream],
-          "akka.japi.Pair" -> classTag[BadJapiPairSinkMaterializingStream],
+          "org.apache.pekko.japi.Pair" -> classTag[BadJapiPairSinkMaterializingStream],
           "java.util.List" -> classTag[BadJavaListSinkMaterializingStream]
         ).foreach { case (testName, ct) =>
           implicit val ict = ct
@@ -126,7 +125,7 @@ class PerpetualStreamMatValueSpec extends AnyFunSpec with Matchers with BeforeAn
           case Failure(e) =>
             e shouldBe a[ClassCastException]
             e.getMessage should be(
-              "Materialized value mismatch. Should be a Sink or a Product/akka.japi.Pair/java.util.List " +
+              "Materialized value mismatch. Should be a Sink or a Product/org.apache.pekko.japi.Pair/java.util.List " +
                 s"with a Sink as its first element. Found ${classOf[Integer].getName}."
             )
           case _ => fail("Expected a failure")
@@ -146,7 +145,7 @@ object PerpetualStreamMatValueSpecHelper {
   implicit val timeout = Timeout(timeoutDuration)
 
   def useSystem[PC <: PerpStream[_] : ClassTag](fn: Try[ActorRef] => Unit)
-    (implicit system: ActorSystem, mat: Materializer): Unit = {
+    (implicit system: ActorSystem): Unit = {
 
     val perpRef = system.actorOf(Props[PC]())
     val someRef = system.actorOf(Props(new SomeActor(perpRef)))
@@ -174,7 +173,7 @@ object PerpetualStreamMatValueSpecHelper {
 
   object PerpStreamActors {
     // TODO Can I not put these within the test:(:(
-    // Seems like I can't due to some Akka actor construction rule.
+    // Seems like I can't due to some Pekko actor construction rule.
 
     class SinkMaterializingStream extends PerpStream[Sink[Long, NotUsed]] {
       self ! Active
@@ -185,10 +184,10 @@ object PerpetualStreamMatValueSpecHelper {
     /**
       * This has Sink[T, NotUsed] as the materialized value's first element.
       */
-    class GoodProductSinkMaterializingStream extends PerpStream[(Sink[Long, NotUsed], Future[akka.Done])] {
+    class GoodProductSinkMaterializingStream extends PerpStream[(Sink[Long, NotUsed], Future[org.apache.pekko.Done])] {
       self ! Active
       override def streamGraph = {
-        RunnableGraph.fromGraph(GraphDSL.create(MergeHub.source[Long], Sink.ignore)((_, _)) { implicit builder =>
+        RunnableGraph.fromGraph(GraphDSL.createGraph(MergeHub.source[Long], Sink.ignore)((_, _)) { implicit builder =>
           (mergeHubSource, sink) =>
             import GraphDSL.Implicits._
             mergeHubSource ~> addToBatch ~> sink
@@ -198,15 +197,15 @@ object PerpetualStreamMatValueSpecHelper {
     }
 
     /**
-      * This has Sink[T, NotUsed] as the materialized value's first element of a [[akka.japi.Pair]].
+      * This has Sink[T, NotUsed] as the materialized value's first element of a [[org.apache.pekko.japi.Pair]].
       */
     class GoodJapiPairSinkMaterializingStream
-      extends PerpStream[akka.japi.Pair[Sink[Long, NotUsed], _]] {
+      extends PerpStream[org.apache.pekko.japi.Pair[Sink[Long, NotUsed], _]] {
       self ! Active
       override def streamGraph = {
         // an alternative to all the effort it took to do GoodProduct above..
         val sink: Sink[Long, NotUsed] = Flow[Long].via(addToBatch).to(Sink.ignore)
-        Source.single(1).toMat(Sink.ignore)((_, _) => akka.japi.Pair(sink, 1))
+        Source.single(1).toMat(Sink.ignore)((_, _) => org.apache.pekko.japi.Pair(sink, 1))
       }
     }
 
@@ -231,12 +230,12 @@ object PerpetualStreamMatValueSpecHelper {
     }
 
     /**
-      * This materializes an akka.japi.Pair that does NOT have Sink[T, NotUsed] as its first element.
+      * This materializes an org.apache.pekko.japi.Pair that does NOT have Sink[T, NotUsed] as its first element.
       */
-    class BadJapiPairSinkMaterializingStream extends PerpStream[akka.japi.Pair[Int, Any]] {
+    class BadJapiPairSinkMaterializingStream extends PerpStream[org.apache.pekko.japi.Pair[Int, Any]] {
       self ! Active
       override def streamGraph =
-        Source.single(1).toMat(Sink.ignore)((_, _) => akka.japi.Pair(1, 2))
+        Source.single(1).toMat(Sink.ignore)((_, _) => org.apache.pekko.japi.Pair(1, 2))
     }
 
     /**
@@ -266,11 +265,11 @@ object PerpetualStreamMatValueSpecHelper {
     }
   }
 
-  class SomeActor(perpStream: ActorRef)(implicit mat: Materializer)
+  class SomeActor(perpStream: ActorRef)
   extends Actor
   with PerpetualStreamMatValue[Long] {
 
-    import context.dispatcher
+    import context.{dispatcher, system}
 
     override def actorLookup(name: String)(implicit refFactory: ActorRefFactory, timeout: Timeout) =
       perpStream

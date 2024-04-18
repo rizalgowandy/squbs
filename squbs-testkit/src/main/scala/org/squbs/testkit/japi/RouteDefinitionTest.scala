@@ -15,10 +15,10 @@
  */
 package org.squbs.testkit.japi
 
-import akka.http.javadsl.model.HttpRequest
-import akka.http.javadsl.server.Route
-import akka.http.javadsl.testkit.{RouteTest, TestRoute, TestRouteResult}
-import akka.testkit.TestActorRef
+import org.apache.pekko.http.javadsl.model.HttpRequest
+import org.apache.pekko.http.javadsl.server.Route
+import org.apache.pekko.http.javadsl.testkit.{RouteTest, TestRoute, TestRouteResult}
+import org.apache.pekko.testkit.TestActorRef
 import org.squbs.testkit.TestRoute.TestRouteActor
 import org.squbs.unicomplex.{AbstractRouteDefinition, BuildRoute, WithActorContext, WithWebContext}
 
@@ -40,6 +40,8 @@ trait RouteDefinitionTest { this: RouteTest =>
       def run(request: HttpRequest): TestRouteResult = runRoute(underlying, request)
 
       def runWithRejections(request: HttpRequest): TestRouteResult = runRouteUnSealed(underlying, request)
+
+      def runClientServer(request: HttpRequest): TestRouteResult = runRoute(underlying, request)
     }
   }
 }

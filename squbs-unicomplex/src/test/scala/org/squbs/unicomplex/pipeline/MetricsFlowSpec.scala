@@ -16,16 +16,16 @@
 
 package org.squbs.unicomplex.pipeline
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.PeerClosedConnectionException
-import akka.http.scaladsl.server._
-import akka.pattern._
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.Uri.Path
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.ws.PeerClosedConnectionException
+import org.apache.pekko.http.scaladsl.server._
+import org.apache.pekko.pattern._
+import org.apache.pekko.stream.ActorMaterializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.scalatest.OptionValues._
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -86,8 +86,6 @@ class MetricsFlowSpec extends TestKit(MetricsFlowSpec.boot.actorSystem) with Asy
   def internalServerError(webContext: String) = HttpRequest(uri = s"$webContext/internalservererror") -> 0
   def connectionException(webContext: String) = HttpRequest(uri = s"$webContext/connectionException") -> 0
   def timeoutException(webContext: String) = HttpRequest(uri = s"$webContext/timeoutException") -> 0
-
-  implicit val materializer = ActorMaterializer()
 
   val portBindings = Await.result((Unicomplex(system).uniActor ? PortBindings).mapTo[Map[String, Int]], awaitMax)
   val port = portBindings("default-listener")

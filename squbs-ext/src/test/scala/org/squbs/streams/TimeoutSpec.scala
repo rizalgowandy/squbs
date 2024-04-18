@@ -16,10 +16,10 @@
 
 package org.squbs.streams
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.stream.scaladsl._
-import akka.stream.{ActorMaterializer, Attributes, FlowShape}
-import akka.testkit.TestKit
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl._
+import org.apache.pekko.stream.{Attributes, FlowShape}
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.squbs.streams.UniqueId.{Envelope, Provider}
@@ -35,8 +35,7 @@ import scala.util.{Failure, Success}
 class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with AsyncFlatSpecLike with Matchers{
   import Timing._
 
-  implicit val materializer = ActorMaterializer()
-  implicit val askTimeout = akka.util.Timeout(10.seconds)
+  implicit val askTimeout = org.apache.pekko.util.Timeout(10.seconds)
 
   val timeoutFailure = Failure(FlowTimeoutException())
 
@@ -117,7 +116,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
   it should "timeout elements for flows that keep the order of messages" in {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[String].mapAsync(3)(elem => (delayActor ? elem).mapTo[String])
 
     val timeoutBidiFlow = TimeoutOrdered[String, String](timeout)
@@ -130,7 +129,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
   it should "let the wrapped ordered flow control the demand" in {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[String]
       .withAttributes(Attributes.inputBuffer(initial = 2, max = 2))
       .mapAsync(2)(elem => (delayActor ? elem).mapTo[String])
@@ -145,7 +144,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
   it should "let the wrapped unordered flow control the demand" in {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, Long)]
       .withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       .mapAsyncUnordered(1) { elem =>
@@ -187,7 +186,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
   it should "timeout elements for flows that do not keep the order of messages" in {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, UUID)].mapAsyncUnordered(3) { elem =>
       (delayActor ? elem).mapTo[(String, UUID)]
     }
@@ -215,7 +214,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
     val notCleanedUpFunction = (s: String) => promiseMap.get(s).foreach(_.trySuccess(false))
 
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, UUID)].mapAsyncUnordered(3) { elem =>
       (delayActor ? elem).mapTo[(String, UUID)]
     }
@@ -249,7 +248,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
     }
 
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, MyContext)].mapAsyncUnordered(3) { elem =>
       (delayActor ? elem).mapTo[(String, MyContext)]
     }
@@ -276,7 +275,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
     }
 
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, MyContext)].mapAsyncUnordered(3) { elem =>
       (delayActor ? elem).mapTo[(String, MyContext)]
     }
@@ -295,7 +294,7 @@ class TimeoutSpec extends TestKit(ActorSystem("TimeoutBidiFlowSpec")) with Async
 
   it should "use the id that is passed with UniqueIdEnvelope" in {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, Envelope)].mapAsyncUnordered(3) { elem =>
       (delayActor ? elem).mapTo[(String, Envelope)]
     }
@@ -336,7 +335,7 @@ class DelayActor extends Actor {
       context.system.scheduler.scheduleOnce(delay(element), sender(), element)
     case element @ (s: String, _) =>
       context.system.scheduler.scheduleOnce(delay(s), sender(), element)
-    case element @ akka.japi.Pair(s: String, _) =>
+    case element @ org.apache.pekko.japi.Pair(s: String, _) =>
       context.system.scheduler.scheduleOnce(delay(s), sender(), element)
   }
 }

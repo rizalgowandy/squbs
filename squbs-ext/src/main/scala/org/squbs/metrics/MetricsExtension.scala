@@ -16,13 +16,13 @@
 
 package org.squbs.metrics
 
-import akka.actor._
+import org.apache.pekko.actor._
 import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.jmx.JmxReporter
 
 object MetricsExtension extends ExtensionId[MetricsExtensionImpl] with ExtensionIdProvider {
 
-  override def lookup(): MetricsExtension.type = MetricsExtension
+  override def lookup: MetricsExtension.type = MetricsExtension
 
   override def createExtension(system: ExtendedActorSystem) = new MetricsExtensionImpl(system)
 

@@ -16,26 +16,19 @@
 
 package org.squbs.httpclient
 
-import java.lang.management.ManagementFactory
-import java.net.InetSocketAddress
-import java.util.Optional
-import java.util.concurrent.ConcurrentHashMap
-
-import javax.management.ObjectName
-import akka.actor.ActorSystem
-import akka.http.javadsl.{model => jm}
-import akka.http.org.squbs.util.JavaConverters._
-import akka.http.scaladsl.Http.HostConnectionPool
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.settings.{ConnectionPoolSettings, HttpsProxySettings}
-import akka.http.scaladsl.{ClientTransport, ConnectionContext, Http, HttpsConnectionContext}
-import akka.http.{javadsl => jd}
-import akka.japi.Pair
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep}
-import akka.stream.{FlowShape, Materializer, javadsl => js}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.event.Logging
+import org.apache.pekko.http.javadsl.{model => jm}
+import org.apache.pekko.http.org.squbs.util.JavaConverters._
+import org.apache.pekko.http.scaladsl.Http.HostConnectionPool
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.http.scaladsl.settings.{ConnectionPoolSettings, HttpsProxySettings}
+import org.apache.pekko.http.scaladsl.{ClientTransport, ConnectionContext, Http, HttpsConnectionContext}
+import org.apache.pekko.http.{javadsl => jd}
+import org.apache.pekko.japi.Pair
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep}
+import org.apache.pekko.stream.{FlowShape, Materializer, javadsl => js}
 import com.typesafe.config.{Config, ConfigFactory}
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import com.typesafe.sslconfig.ssl.SSLConfigFactory
 import org.squbs.env.{Default, Environment, EnvironmentResolverRegistry}
 import org.squbs.pipeline.{ClientPipeline, Context, PipelineExtension, PipelineSetting, RequestContext}
 import org.squbs.resolver.ResolverRegistry
@@ -43,13 +36,18 @@ import org.squbs.streams.circuitbreaker.impl.AtomicCircuitBreakerState
 import org.squbs.streams.circuitbreaker.{CircuitBreaker, CircuitBreakerSettings, japi}
 import org.squbs.util.ConfigUtil._
 
+import java.lang.management.ManagementFactory
+import java.net.InetSocketAddress
+import java.util.Optional
+import java.util.concurrent.ConcurrentHashMap
+import javax.management.ObjectName
 import scala.compat.java8.FunctionConverters._
 import scala.compat.java8.OptionConverters
 import scala.util.{Failure, Success, Try}
 
 object ClientFlow {
 
-  val AkkaHttpClientCustomContext = "akka-http-client-custom-context"
+  val PekkoHttpClientCustomContext = "pekko-http-client-custom-context"
   type ClientConnectionFlow[T] = Flow[(HttpRequest, T), (Try[HttpResponse], T), HostConnectionPool]
   private[httpclient] val defaultResolverRegistrationRecord = new ConcurrentHashMap[String, Unit]
 
@@ -58,7 +56,7 @@ object ClientFlow {
     *
     * Helps to create a [[ClientConnectionFlow]] using builder pattern.
     */
-  def builder[T]() = Builder[T]()
+  def builder[T](): Builder[T] = Builder[T]()
 
   /**
     * Java API
@@ -70,19 +68,20 @@ object ClientFlow {
       Optional.empty[japi.CircuitBreakerSettings[jm.HttpRequest, jm.HttpResponse, T]](),
     environment: Environment = Default) {
 
-    def withConnectionContext(connectionContext: jd.HttpsConnectionContext) =
+    def withConnectionContext(connectionContext: jd.HttpsConnectionContext): Builder[T] =
       copy(connectionContext = Optional.of(connectionContext))
 
-    def withSettings(settings: jd.settings.ConnectionPoolSettings) =
+    def withSettings(settings: jd.settings.ConnectionPoolSettings): Builder[T] =
       copy(settings = Optional.of(settings))
 
     def withCircuitBreakerSettings(
-      circuitBreakerSettings: japi.CircuitBreakerSettings[jm.HttpRequest, jm.HttpResponse, T]) =
+      circuitBreakerSettings: japi.CircuitBreakerSettings[jm.HttpRequest, jm.HttpResponse, T]): Builder[T] =
       copy(circuitBreakerSettings = Optional.of(circuitBreakerSettings))
 
-    def withEnvironment(environment: Environment) = copy(environment = environment)
+    def withEnvironment(environment: Environment): Builder[T] = copy(environment = environment)
 
-    def create(name: String, system: ActorSystem, mat: Materializer) =
+    def create(name: String, system: ActorSystem, mat: Materializer):
+        js.Flow[Pair[jm.HttpRequest, T], Pair[Try[jm.HttpResponse], T], jd.HostConnectionPool] =
       ClientFlow.create(name, connectionContext, settings, circuitBreakerSettings, environment, system, mat)
   }
 
@@ -112,7 +111,8 @@ object ClientFlow {
     toJava[T](apply[T](name, cCtx, sSettings, toScala(circuitBreakerSettings), env)(system, mat))
   }
 
-  private def toScala[T](circuitBreakerSettings: Optional[japi.CircuitBreakerSettings[jm.HttpRequest, jm.HttpResponse, T]]) = {
+  private def toScala[T](
+      circuitBreakerSettings: Optional[japi.CircuitBreakerSettings[jm.HttpRequest, jm.HttpResponse, T]]) = {
     OptionConverters.toScala(circuitBreakerSettings).map(_.toScala).map { sCircuitBreakerSettings =>
       CircuitBreakerSettings[HttpRequest, HttpResponse, T](sCircuitBreakerSettings.circuitBreakerState)
         .copy(fallback = sCircuitBreakerSettings.fallback
@@ -150,11 +150,14 @@ object ClientFlow {
     }
     val clientConfigWithDefaults = clientSpecificConfig.map(_.withFallback(config)).getOrElse(config)
     val cps = settings.getOrElse {
+      val log = Logging(system, this.getClass)
       Try { HttpsProxySettings(clientConfigWithDefaults) } match {
         case Success(proxySettings) =>
+          log.info("Successfully loaded proxy settings: {}", proxySettings)
           ConnectionPoolSettings(clientConfigWithDefaults).withTransport(ClientTransport.httpsProxy(
-            InetSocketAddress.createUnresolved(proxySettings.host, proxySettings.port)))
-        case _ =>
+              InetSocketAddress.createUnresolved(proxySettings.host, proxySettings.port)))
+        case Failure(e) =>
+          log.error(e, "Did not load proxy settings. Falling back to non-proxy.")
           ConnectionPoolSettings(clientConfigWithDefaults)
       }
     }
@@ -162,13 +165,15 @@ object ClientFlow {
     val endpointPort = endpoint.uri.effectivePort
     val clientConnectionFlow =
       if (endpoint.uri.scheme == "https") {
-
-        val akkaOverrides = clientConfigWithDefaults.getConfig("akka.ssl-config")
-        val defaults = clientConfigWithDefaults.getConfig("ssl-config")
-        val sslConfig = AkkaSSLConfig().withSettings(SSLConfigFactory.parse(akkaOverrides withFallback defaults))
-
         val httpsConnectionContext = connectionContext orElse {
-          endpoint.sslContext map { sc => ConnectionContext.https(sc, Some(sslConfig)) }
+          endpoint.sslContext map { sc =>
+            endpoint.sslEngineProvider match {
+              case Some(provider) =>
+                ConnectionContext.httpsClient { (host, port) => provider.createSSLEngine(sc, host, port) }
+              case None =>
+                ConnectionContext.httpsClient(sc)
+            }
+          }
         } getOrElse Http().defaultClientHttpsContext
 
         Http().cachedHostConnectionPoolHttps[RequestContext](endpoint.uri.authority.host.address,
@@ -245,14 +250,14 @@ object ClientFlow {
               case _ => true
             }))
           .copy(uniqueIdMapper =
-            cbs.uniqueIdMapper.map(f => (rc: RequestContext) => f(rc.attribute[T](AkkaHttpClientCustomContext).get)))
+            cbs.uniqueIdMapper.map(f => (rc: RequestContext) => f(rc.attribute[T](PekkoHttpClientCustomContext).get)))
         .withCleanUp(tryHttpResponse => tryHttpResponse.foreach(cbs.cleanUp))
 
     val circuitBreakerBidiFlow = CircuitBreaker(clientFlowCircuitBreakerSettings)
 
     circuitBreakerBidiFlow
       .joinMat(clientConnectionFlow)(Keep.right)
-      .map { case(tryTryHttpResponse, requestContext) => (tryTryHttpResponse.flatten -> requestContext) }
+      .map { case(tryTryHttpResponse, requestContext) => tryTryHttpResponse.flatten -> requestContext }
   }
 
   private[httpclient] def withPipeline[T](name: String, pipelineSetting: PipelineSetting,
@@ -262,17 +267,17 @@ object ClientFlow {
     PipelineExtension(system).getFlow(pipelineSetting, Context(name, ClientPipeline)) match {
       case Some(pipeline) =>
         val tupleToRequestContext = Flow[(HttpRequest, T)].map { case (request, t) =>
-          RequestContext(request, 0).withAttribute(AkkaHttpClientCustomContext, t)
+          RequestContext(request, 0).withAttribute(PekkoHttpClientCustomContext, t)
         }
 
         val fromRequestContextToTuple = Flow[RequestContext].map { rc =>
           ( rc.response.getOrElse(Failure(new RuntimeException("Empty HttpResponse in client Pipeline"))),
-            rc.attribute[T](AkkaHttpClientCustomContext).get)
+            rc.attribute[T](PekkoHttpClientCustomContext).get)
           // TODO What to do if `AkkaHttpClientCustomContext` somehow got deleted in the pipeline?
         }
         val clientConnectionFlowWithPipeline = pipeline.joinMat(pipelineAdapter(clientConnectionFlow))(Keep.right)
 
-        Flow.fromGraph( GraphDSL.create(clientConnectionFlowWithPipeline) { implicit b =>
+        Flow.fromGraph( GraphDSL.createGraph(clientConnectionFlowWithPipeline) { implicit b =>
           clientConnectionFlowWithPipeline =>
           import GraphDSL.Implicits._
 
@@ -285,15 +290,15 @@ object ClientFlow {
         })
       case None =>
         val customContextToRequestContext = Flow[(HttpRequest, T)].map { case (request, t) =>
-          (request, RequestContext(request, 0).withAttribute(AkkaHttpClientCustomContext, t))
+          (request, RequestContext(request, 0).withAttribute(PekkoHttpClientCustomContext, t))
         }
 
         val requestContextToCustomContext =
           Flow[(Try[HttpResponse], RequestContext)].map { case (tryHttpResponse, rc) =>
-            (tryHttpResponse, rc.attribute[T](AkkaHttpClientCustomContext).get)
+            (tryHttpResponse, rc.attribute[T](PekkoHttpClientCustomContext).get)
         }
 
-        Flow.fromGraph( GraphDSL.create(clientConnectionFlow) { implicit b => clientConnectionFlow =>
+        Flow.fromGraph( GraphDSL.createGraph(clientConnectionFlow) { implicit b => clientConnectionFlow =>
           import GraphDSL.Implicits._
 
           val toRequestContext = b.add(customContextToRequestContext)

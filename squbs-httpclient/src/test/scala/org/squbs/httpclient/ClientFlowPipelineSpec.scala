@@ -16,17 +16,17 @@
 
 package org.squbs.httpclient
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.stream.scaladsl._
-import akka.stream.{ActorMaterializer, BidiShape}
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.stream.BidiShape
+import org.apache.pekko.stream.scaladsl._
+import org.apache.pekko.util.ByteString
 import com.typesafe.config.ConfigFactory
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.BeforeAndAfterAll
 import org.squbs.pipeline.{Context, PipelineFlow, PipelineFlowFactory, RequestContext}
 import org.squbs.resolver.ResolverRegistry
 import org.squbs.testkit.Timeouts._
@@ -81,9 +81,7 @@ object ClientFlowPipelineSpec {
   )
 
   implicit val system: ActorSystem = ActorSystem("ClientFlowPipelineSpec", config)
-  implicit val materializer = ActorMaterializer()
-  import akka.http.scaladsl.server.Directives._
-  import system.dispatcher
+  import org.apache.pekko.http.scaladsl.server.Directives._
 
   val route =
     path("hello") {
@@ -93,7 +91,7 @@ object ClientFlowPipelineSpec {
       }
     }
 
-  val serverBinding = Await.result(Http().bindAndHandle(route, "localhost", 0), awaitMax)
+  val serverBinding = Await.result(Http().newServerAt("localhost", 0).bind(route), awaitMax)
   val port = serverBinding.localAddress.getPort
 }
 

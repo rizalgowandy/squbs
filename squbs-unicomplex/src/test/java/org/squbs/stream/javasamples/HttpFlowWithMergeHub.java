@@ -1,11 +1,10 @@
 package org.squbs.stream.javasamples;
 
-import akka.NotUsed;
-import akka.http.javadsl.model.HttpRequest;
-import akka.http.javadsl.model.HttpResponse;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
-import akka.stream.javadsl.Flow;
+import org.apache.pekko.NotUsed;
+import org.apache.pekko.http.javadsl.model.HttpRequest;
+import org.apache.pekko.http.javadsl.model.HttpResponse;
+import org.apache.pekko.stream.Materializer;
+import org.apache.pekko.stream.javadsl.Flow;
 import org.squbs.marshallers.MarshalUnmarshal;
 import org.squbs.stream.FlowToPerpetualStream;
 
@@ -13,7 +12,7 @@ import static org.squbs.marshallers.json.JacksonMapperSupport.unmarshaller;
 
 class HttpFlowWithMergeHub extends FlowToPerpetualStream {
 
-    private final Materializer mat = ActorMaterializer.create(context().system());
+    private final Materializer mat = Materializer.createMaterializer(context());
     private final MarshalUnmarshal mu = new MarshalUnmarshal(context().system().dispatcher(), mat);
 
     @Override

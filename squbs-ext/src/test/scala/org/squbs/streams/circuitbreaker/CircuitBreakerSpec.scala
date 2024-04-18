@@ -16,11 +16,12 @@
 
 package org.squbs.streams.circuitbreaker
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.stream.scaladsl.{BidiFlow, Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.Timeout
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.stream.{CompletionStrategy, OverflowStrategy}
+import org.apache.pekko.stream.scaladsl.{BidiFlow, Flow, Keep, Sink, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.Timeout
 import com.typesafe.config.ConfigFactory
 import org.scalatest.OptionValues._
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -43,7 +44,6 @@ class CircuitBreakerSpec
 
   import Timing._
 
-  implicit val materializer = ActorMaterializer()
   implicit val askTimeout = Timeout(10.seconds)
   import system.dispatcher
   implicit val scheduler = system.scheduler
@@ -51,9 +51,11 @@ class CircuitBreakerSpec
   val timeoutFailure = Failure(FlowTimeoutException())
   val circuitBreakerOpenFailure = Failure(CircuitBreakerOpenException())
 
+  val completionMatcher: PartialFunction[Any, CompletionStrategy] = { case Done => CompletionStrategy.draining }
+
   def delayFlow() = {
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     Flow[(String, UUID)].mapAsyncUnordered(5) { elem =>
       (delayActor ? elem).mapTo[(String, UUID)]
     }
@@ -64,7 +66,8 @@ class CircuitBreakerSpec
       .map(s => (s, UUID.randomUUID()))
       .via(CircuitBreaker[String, String, UUID](CircuitBreakerSettings(circuitBreakerState)).join(delayFlow()))
       .to(Sink.ignore)
-      .runWith(Source.actorRef[String](25, OverflowStrategy.fail))
+      .runWith(Source.actorRef[String](completionMatcher, failureMatcher = PartialFunction.empty,
+        25, OverflowStrategy.fail))
   }
 
   it should "increment failure count on call timeout" in {
@@ -107,7 +110,8 @@ class CircuitBreakerSpec
     val ref = Flow[String]
       .map(s => (s, UUID.randomUUID())).via(circuitBreakerBidiFlow.join(flow))
       .to(Sink.ignore)
-      .runWith(Source.actorRef[String](25, OverflowStrategy.fail))
+      .runWith(Source.actorRef[String](completionMatcher, failureMatcher = PartialFunction.empty,
+        25, OverflowStrategy.fail))
 
     ref ! "a"
     ref ! "b"
@@ -197,7 +201,7 @@ class CircuitBreakerSpec
     case class MyContext(s: String, id: Long)
 
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, MyContext)].mapAsyncUnordered(5) { elem =>
       (delayActor ? elem).mapTo[(String, MyContext)]
     }
@@ -240,7 +244,7 @@ class CircuitBreakerSpec
     val notCleanedUpFunction = (s: String) => promiseMap.get(s).foreach(_.trySuccess(false))
 
     val delayActor = system.actorOf(Props[DelayActor]())
-    import akka.pattern.ask
+    import org.apache.pekko.pattern.ask
     val flow = Flow[(String, MyContext)].mapAsyncUnordered(5) { elem =>
       (delayActor ? elem).mapTo[(String, MyContext)]
     }
@@ -318,7 +322,8 @@ class CircuitBreakerSpec
 
     circuitBreakerState.subscribe(self, Open)
 
-    val flow = Source.actorRef[String](25, OverflowStrategy.fail)
+    val flow = Source.actorRef[String](completionMatcher, failureMatcher = PartialFunction.empty,
+      25, OverflowStrategy.fail)
       .map(s => (s, UUID.randomUUID()))
       .via(CircuitBreaker[String, String, UUID](CircuitBreakerSettings(circuitBreakerState)).join(delayFlow()))
       .map(_._1)
@@ -333,8 +338,8 @@ class CircuitBreakerSpec
     expectMsg(Open)
     ref2 ! "a"
     ref2 ! "a"
-    ref1 ! akka.actor.Status.Success("a")
-    ref2 ! akka.actor.Status.Success("a")
+    ref1 ! Done
+    ref2 ! Done
 
     assertFuture(result2) { r2 =>
       val expected = circuitBreakerOpenFailure :: circuitBreakerOpenFailure :: Nil
@@ -348,7 +353,7 @@ class CircuitBreakerSpec
 object CircuitBreakerSpec {
   val config = ConfigFactory.parseString(
     """
-      |akka.test.single-expect-default = 30 seconds
+      |pekko.test.single-expect-default = 30 seconds
       |
       |exponential-backoff-circuitbreaker {
       |  type = squbs.circuitbreaker

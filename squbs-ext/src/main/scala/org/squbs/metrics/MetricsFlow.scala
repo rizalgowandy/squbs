@@ -16,10 +16,10 @@
 
 package org.squbs.metrics
 
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{BidiFlow, Flow}
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{BidiFlow, Flow}
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.codahale.metrics.{MetricRegistry, Timer}
 import org.squbs.pipeline.{PipelineFlow, RequestContext}
 
@@ -80,7 +80,8 @@ object MaterializationMetricsCollector {
   def create[T](name: String, system: ActorSystem) = apply[T](name)(system)
 }
 
-class MaterializationMetricsCollector[T] private[metrics] (name: String)(implicit system: ActorSystem) extends GraphStage[FlowShape[T, T]] {
+class MaterializationMetricsCollector[T] private[metrics] (name: String)(implicit system: ActorSystem)
+    extends GraphStage[FlowShape[T, T]] {
 
   val domain = MetricsExtension(system).Domain
   val metrics = MetricsExtension(system).metrics
@@ -118,10 +119,10 @@ class MaterializationMetricsCollector[T] private[metrics] (name: String)(implici
     setHandler(out, new OutHandler {
       override def onPull(): Unit = pull(in)
 
-      override def onDownstreamFinish(): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit = {
         activeMaterializationCount.dec()
         materializationTerminationCount.mark()
-        super.onDownstreamFinish()
+        super.onDownstreamFinish(cause)
       }
     })
   }

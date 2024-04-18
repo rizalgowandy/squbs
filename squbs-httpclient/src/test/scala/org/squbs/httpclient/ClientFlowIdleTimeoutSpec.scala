@@ -15,15 +15,14 @@
  */
 package org.squbs.httpclient
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source, TcpIdleTimeoutException}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.stream.scaladsl.{Sink, Source, TcpIdleTimeoutException}
 import com.typesafe.config.ConfigFactory
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.BeforeAndAfterAll
 import org.squbs.resolver.ResolverRegistry
 import org.squbs.testkit.Timeouts.awaitMax
 
@@ -34,9 +33,9 @@ object ClientFlowIdleTimeoutSpec {
 
   val config = ConfigFactory.parseString(
     """
-      |akka {
+      |pekko {
       |  loggers = [
-      |    "akka.event.Logging$DefaultLogger"
+      |    "org.apache.pekko.event.Logging$DefaultLogger"
       |  ]
       |
       |  loglevel = "DEBUG"
@@ -55,15 +54,13 @@ object ClientFlowIdleTimeoutSpec {
     """.stripMargin)
 
   implicit val system = ActorSystem("ClientFlowIdleTimeoutSpec", config)
-  implicit val materializer = ActorMaterializer()
 
   ResolverRegistry(system).register[HttpEndpoint]("LocalhostEndpointResolver") { (svcName, _) => svcName match {
     case "slow" => Some(HttpEndpoint(s"http://localhost:$port"))
     case _ => None
   }}
 
-  import akka.http.scaladsl.server.Directives._
-  import system.dispatcher
+  import org.apache.pekko.http.scaladsl.server.Directives._
 
   val route =
     path("slow") {
@@ -77,7 +74,7 @@ object ClientFlowIdleTimeoutSpec {
       }
     }
 
-  val serverBinding = Await.result(Http().bindAndHandle(route, "localhost", 0), awaitMax)
+  val serverBinding = Await.result(Http().newServerAt("localhost", 0).bind(route), awaitMax)
   val port = serverBinding.localAddress.getPort
 }
 

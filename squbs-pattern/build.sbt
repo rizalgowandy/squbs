@@ -2,12 +2,12 @@ import Versions._
 
 name := "squbs-pattern"
 
-testOptions in Test ++= Seq(
+Test / testOptions ++= Seq(
   Tests.Argument(TestFrameworks.ScalaTest, "-l", "org.squbs.testkit.tags.SlowTest"),
   Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
 )
 
-javaOptions in Test ++= Seq("-Xmx512m", "-ea")
+Test / javaOptions ++= Seq("-Xmx512m", "-ea")
 
 libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-reflect" % scalaVersion.value,
@@ -25,20 +25,18 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonV % Optional,
   "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % jacksonV % Optional,
   "ch.qos.logback" % "logback-classic" % logbackInTestV % Test
-) ++ akkaDependencies
+) ++ pekkoDependencies
 
-def akkaDependencies = Seq(
-  "com.typesafe.akka" %% "akka-actor" % akkaV,
-  "com.typesafe.akka" %% "akka-agent" % akkaV,
-  "com.typesafe.akka" %% "akka-stream" % akkaV,
-  "com.typesafe.akka" %% "akka-testkit" % akkaV % Test,
-  "com.typesafe.akka" %% "akka-contrib" % akkaV % Optional,
-  "com.typesafe.akka" %% "akka-http" % akkaHttpV % Optional,
-  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpV % Test,
-  "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % Test
+def pekkoDependencies = Seq(
+  "org.apache.pekko" %% "pekko-actor" % pekkoV,
+  "org.apache.pekko" %% "pekko-stream" % pekkoV,
+  "org.apache.pekko" %% "pekko-testkit" % pekkoV % Test,
+  "org.apache.pekko" %% "pekko-http" % pekkoHttpV % Optional,
+  "org.apache.pekko" %% "pekko-http-spray-json" % pekkoHttpV % Test,
+  "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV % Test
 )
 
 
-// (testOptions in Test) += Tests.Argument(TestFrameworks.ScalaTest, "-h", "report/squbs-pattern")
+// Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-h", "report/squbs-pattern")
 
 updateOptions := updateOptions.value.withCachedResolution(true)

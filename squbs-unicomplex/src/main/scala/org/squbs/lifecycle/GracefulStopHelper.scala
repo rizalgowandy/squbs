@@ -18,8 +18,8 @@ package org.squbs.lifecycle
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor._
-import akka.pattern.GracefulStopSupport
+import org.apache.pekko.actor._
+import org.apache.pekko.pattern.GracefulStopSupport
 import org.squbs.unicomplex.{StopTimeout, Unicomplex}
 import org.squbs.util.DurationConverters
 
@@ -30,7 +30,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-case object GracefulStop
+case object GracefulStop {
+  def getInstance: GracefulStop.type = this
+}
 
 /**
  * The trait provides some helper methods to support graceful stop of an actor

@@ -15,7 +15,7 @@
  */
 package org.squbs.httpclient;
 
-import akka.http.javadsl.model.Uri;
+import org.apache.pekko.http.javadsl.model.Uri;
 import org.squbs.env.Environment;
 import org.squbs.resolver.AbstractResolver;
 
@@ -38,7 +38,8 @@ public class JavaEndpointResolver2 extends AbstractResolver<HttpEndpoint> {
     public Optional<HttpEndpoint> resolve(String svcName, Environment env) {
         if (name().equals(svcName)) {
             return Optional.of(
-                    HttpEndpoint.create(Uri.create(dummyServiceEndpoint),Optional.empty(), Optional.empty()));
+                    HttpEndpoint.create(Uri.create(dummyServiceEndpoint), Optional.empty(),
+                            Optional.empty(), Optional.empty()));
         } else {
             return Optional.empty();
         }

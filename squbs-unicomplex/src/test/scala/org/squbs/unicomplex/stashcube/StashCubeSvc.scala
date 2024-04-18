@@ -16,19 +16,16 @@
 
 package org.squbs.unicomplex.stashcube
 
-import akka.actor.{Actor, Stash}
-import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
-import akka.util.ByteString
+import org.apache.pekko.actor.{Actor, Stash}
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.util.ByteString
 
 import scala.collection.mutable.ListBuffer
 
 class StashCubeSvc extends Actor with Stash {
 
 	private val msgList = new ListBuffer[String]()
-
-  implicit val am = ActorMaterializer()
-  import context.dispatcher
+  import context.{dispatcher, system}
 
 	override def receive: Receive = {
 		case req@HttpRequest(HttpMethods.POST, _, _, _, _) =>

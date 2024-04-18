@@ -16,11 +16,11 @@
 
 package org.squbs.streams
 
-import akka.actor.ActorSystem
-import akka.stream.ThrottleMode.Shaping
-import akka.stream.scaladsl._
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import akka.testkit.TestKit
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.OverflowStrategy
+import org.apache.pekko.stream.ThrottleMode.Shaping
+import org.apache.pekko.stream.scaladsl._
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.squbs.metrics.MetricsExtension
@@ -31,8 +31,6 @@ import scala.concurrent.duration._
 
 class DemandSupplyMetricsSpec extends TestKit(ActorSystem("DemandSupplyMetricsSpec")) with AsyncFlatSpecLike
   with Matchers {
-
-  implicit val materializer = ActorMaterializer()
 
   it should "throttle demand" in {
     val name = "test1"

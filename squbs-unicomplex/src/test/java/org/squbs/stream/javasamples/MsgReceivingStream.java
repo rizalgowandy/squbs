@@ -1,23 +1,36 @@
 package org.squbs.stream.javasamples;
 
-import akka.Done;
-import akka.actor.AbstractActor;
-import akka.actor.ActorRef;
-import akka.actor.Props;
-import akka.japi.Pair;
-import akka.japi.pf.ReceiveBuilder;
-import akka.stream.ClosedShape;
-import akka.stream.javadsl.GraphDSL;
-import akka.stream.javadsl.RunnableGraph;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
+import org.apache.pekko.Done;
+import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.Props;
+import org.apache.pekko.japi.Pair;
+import org.apache.pekko.japi.pf.ReceiveBuilder;
+import org.apache.pekko.stream.ClosedShape;
+import org.apache.pekko.stream.CompletionStrategy;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.javadsl.GraphDSL;
+import org.apache.pekko.stream.javadsl.RunnableGraph;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
 import org.squbs.stream.AbstractPerpetualStream;
 
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 public class MsgReceivingStream extends AbstractPerpetualStream<Pair<ActorRef, CompletionStage<Done>>> {
 
-    Source<MyStreamMsg, ActorRef> actorSource = Source.actorPublisher(Props.create(MyPublisher.class));
+    Source<MyStreamMsg, ActorRef> actorSource = Source.actorRef(
+            elem -> {
+                if (Done.done() == elem) return Optional.of(CompletionStrategy.immediately());
+                else return Optional.empty();
+            },
+            elem -> Optional.empty(),
+            10,
+            OverflowStrategy.dropHead()
+    );
+            // Source.actorPublisher(Props.create(MyPublisher.class));
+
     Sink<MyStreamMsg, CompletionStage<Done>> ignoreSink = Sink.ignore();
 
     @Override

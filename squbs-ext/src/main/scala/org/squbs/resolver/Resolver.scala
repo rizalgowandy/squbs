@@ -22,7 +22,7 @@ import java.util.Optional
 import java.util.function.BiFunction
 import javax.management.{MXBean, ObjectName}
 
-import akka.actor._
+import org.apache.pekko.actor._
 import com.typesafe.scalalogging.LazyLogging
 import org.squbs.env.{Default, Environment}
 
@@ -182,7 +182,7 @@ class ResolverRegistryExtension(system: ExtendedActorSystem) extends Extension w
 
 object ResolverRegistry extends ExtensionId[ResolverRegistryExtension] with ExtensionIdProvider {
 
-  override def lookup() = ResolverRegistry
+  override def lookup = ResolverRegistry
 
   override def createExtension(system: ExtendedActorSystem): ResolverRegistryExtension = {
     val mBeanServer = ManagementFactory.getPlatformMBeanServer

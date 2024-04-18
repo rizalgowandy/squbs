@@ -15,17 +15,20 @@
  */
 package org.squbs.httpclient;
 
-import akka.NotUsed;
-import akka.actor.ActorSystem;
-import akka.http.javadsl.*;
-import akka.http.javadsl.model.HttpRequest;
-import akka.http.javadsl.model.HttpResponse;
-import akka.http.javadsl.model.StatusCodes;
-import akka.japi.Pair;
-import akka.stream.ActorMaterializer;
-import akka.stream.javadsl.Flow;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.http.javadsl.ConnectionContext;
+import org.apache.pekko.http.javadsl.HostConnectionPool;
+import org.apache.pekko.http.javadsl.Http;
+import org.apache.pekko.http.javadsl.ServerBinding;
+import org.apache.pekko.http.javadsl.model.HttpRequest;
+import org.apache.pekko.http.javadsl.model.HttpResponse;
+import org.apache.pekko.http.javadsl.model.StatusCodes;
+import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.japi.Pair;
+import org.apache.pekko.stream.Materializer;
+import org.apache.pekko.stream.javadsl.Flow;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
 import com.typesafe.config.ConfigFactory;
 import org.junit.AfterClass;
 import org.junit.Test;
@@ -35,8 +38,11 @@ import scala.util.Try;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
+import java.io.IOException;
 import java.io.InputStream;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.Optional;
@@ -49,24 +55,24 @@ public class ClientFlowHttpsEndpointTest {
     private static final String cfg =
             "helloHttps {\n" +
             "  type = squbs.httpclient\n" +
-            "  akka.ssl-config.loose.disableHostnameVerification = true\n" +
+            "  pekko.ssl-config.loose.disableHostnameVerification = true\n" +
             "}\n";
 
     private static final ActorSystem system = ActorSystem.create("ClientFlowHttpsEndpointTest",
             ConfigFactory.parseString(cfg));
-    private static final ActorMaterializer mat = ActorMaterializer.create(system);
-    private static final Flow<HttpRequest, HttpResponse, NotUsed> flow = new MyRoute().route().flow(system, mat);
-
+    private static final Route route = new MyRoute().route();
+    private static final Materializer mat = Materializer.createMaterializer(system);
     private static final ServerBinding serverBinding;
 
     static {
         ServerBinding binding;
         try {
-            final ConnectWithHttps ic = ConnectHttp.toHostHttps("localhost", 0);
-            final ConnectWithHttps c = sslContext("example.com.jks", "changeit")
-                    .map(sc -> ic.withCustomHttpsContext(ConnectionContext.https(sc)))
-                    .orElse(ic.withDefaultHttpsContext());
-            binding = Http.get(system).bindAndHandle(flow, c, mat).toCompletableFuture().get();
+            binding = Http.get(system)
+                    .newServerAt("localhost", 0)
+                    .enableHttps(ConnectionContext.httpsServer(sslContext("example.com.jks", "changeit")))
+                    .bind(route)
+                    .toCompletableFuture()
+                    .get();
         } catch(Exception e) {
             binding = null;
         }
@@ -75,12 +81,32 @@ public class ClientFlowHttpsEndpointTest {
 
     private static final int port = serverBinding.localAddress().getPort();
 
+    static class InsecureSSLEngineProvider implements SSLEngineProvider {
+
+        @Override
+        public SSLEngine createSSLEngine(SSLContext sslContext, String hostname, int port) {
+            SSLEngine engine = sslContext.createSSLEngine(hostname, port);
+            engine.setUseClientMode(true);
+            return engine;
+        }
+    }
+
     static {
+        Optional<SSLContext> scOpt;
+        try {
+            scOpt = Optional.of(sslContext("exampletrust.jks", "changeit"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            scOpt = Optional.empty();
+        }
+        final Optional<SSLContext> sslContextOpt = scOpt;
         ResolverRegistry.get(system).register(HttpEndpoint.class, "LocalhostHttpsEndpointResolver", (svcName, env) -> {
             if ("helloHttps".equals(svcName)) {
                 return Optional.of(HttpEndpoint.create("https://localhost:" + port,
-                        sslContext("exampletrust.jks", "changeit"),
-                        Optional.empty()));
+                        sslContextOpt,
+                        Optional.empty(),
+                        Optional.of(new InsecureSSLEngineProvider())
+                ));
             }
             return Optional.empty();
         });
@@ -92,8 +118,7 @@ public class ClientFlowHttpsEndpointTest {
         clientFlow = ClientFlow.create("helloHttps", system, mat);
     }
 
-    static Optional<SSLContext> sslContext(String store, String pw) {
-        try {
+    static SSLContext sslContext(String store, String pw) throws GeneralSecurityException, IOException {
             char[] password = pw.toCharArray();
             KeyStore ks = KeyStore.getInstance("JKS");
             InputStream keystore = ClientFlowHttpsTest.class.getClassLoader()
@@ -109,12 +134,7 @@ public class ClientFlowHttpsEndpointTest {
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagerFactory.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
-            return Optional.of(sslContext);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Optional.empty();
-        }
-
+            return sslContext;
     }
 
     CompletionStage<Try<HttpResponse>> doRequest(HttpRequest request) {
